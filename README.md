@@ -1,5 +1,4 @@
 # Image Compression with Run-Length Encoding Algorithm
-## Computer Organization & Assembly Language (COAL) {EE-229} Semester Project Fall 2020
 Lossless &amp; Lossy Compression of PNG Images implemented in x86 Assembly using the modified Run-Length Encoding Algorithm
 
 ## Developers
