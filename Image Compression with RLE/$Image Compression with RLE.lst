@@ -1,0 +1,1732 @@
+Microsoft (R) Macro Assembler Version 10.00.30319.01	    02/02/21 15:58:33
+4Image Compression with Run Length Encoding Algorith	     Page 1 - 1
+
+
+				TITLE Image Compression with Run Length Encoding Algorithm
+				INCLUDE irvine32.inc
+			      C ; Include file for Irvine32.lib             (Irvine32.inc)
+			      C 
+			      C ;OPTION CASEMAP:NONE		; optional: make identifiers case-sensitive
+			      C 
+			      C INCLUDE SmallWin.inc		; MS-Windows prototypes, structures, and constants
+			      C .NOLIST
+			      C .LIST
+			      C 
+			      C INCLUDE VirtualKeys.inc
+			      C ; VirtualKeys.inc
+			      C .NOLIST
+			      C .LIST
+			      C 
+			      C 
+			      C .NOLIST
+			      C .LIST
+			      C 
+ 00000000			.data
+ = 00001388				BUFSIZE = 5000
+ = 00000050				maxNoOfChars = 80
+ 00000000  00001388 [			buffer BYTE BUFSIZE DUP(?)
+	    00
+	   ]
+ 00001388  00001388 [			outputBuffer BYTE BUFSIZE DUP(?)
+	    00
+	   ]
+ 00002710  00001388 [			backupOfBuffer BYTE BUFSIZE DUP(?)
+	    00
+	   ]
+ 00003A98 64 65 66 61 75		defaultFileName BYTE "default.txt", 0
+	   6C 74 2E 74 78
+	   74 00
+ 00003AA4  00000050 [			fileName BYTE maxNoOfChars DUP(?)
+	    00
+	   ]
+ 00003AF4  00000050 [			compressedfileName BYTE maxNoOfChars DUP(?)
+	    00
+	   ]
+ 00003B44  00000050 [			decompressedFileName BYTE maxNoOfChars DUP(?)
+	    00
+	   ]
+ 00003B94 00000000			fileHandle HANDLE ?
+ 00003B98 00000000			imageWidth DWORD ?
+ 00003B9C 00000000			imageHeight DWORD ?
+ 00003BA0 00000000			totalNoOfBytes DWORD ?
+ 00003BA4 00000000			bytesWritten DWORD ?
+ 00003BA8 00000000			bytesRead DWORD ?
+ 00003BAC 45 6E 74 65 72		choicePrompt BYTE "Enter choice (1-7): ", 0
+	   20 63 68 6F 69
+	   63 65 20 28 31
+	   2D 37 29 3A 20
+	   00
+ 00003BC1 45 6E 74 65 72		prompt1 BYTE "Enter image width: ", 0
+	   20 69 6D 61 67
+	   65 20 77 69 64
+	   74 68 3A 20 00
+ 00003BD5 45 6E 74 65 72		prompt2 BYTE "Enter image height: ", 0
+	   20 69 6D 61 67
+	   65 20 68 65 69
+	   67 68 74 3A 20
+	   00
+ 00003BEA 45 6E 74 65 72		prompt3 BYTE "Enter the name of the compressed file: ", 0
+	   20 74 68 65 20
+	   6E 61 6D 65 20
+	   6F 66 20 74 68
+	   65 20 63 6F 6D
+	   70 72 65 73 73
+	   65 64 20 66 69
+	   6C 65 3A 20 00
+ 00003C12 45 6E 74 65 72		prompt4 BYTE "Enter the name of the uncompressed file: ", 0
+	   20 74 68 65 20
+	   6E 61 6D 65 20
+	   6F 66 20 74 68
+	   65 20 75 6E 63
+	   6F 6D 70 72 65
+	   73 73 65 64 20
+	   66 69 6C 65 3A
+	   20 00
+ 00003C3C 45 6E 74 65 72		prompt5 BYTE "Enter the name of the file to compress: ", 0
+	   20 74 68 65 20
+	   6E 61 6D 65 20
+	   6F 66 20 74 68
+	   65 20 66 69 6C
+	   65 20 74 6F 20
+	   63 6F 6D 70 72
+	   65 73 73 3A 20
+	   00
+ 00003C65 45 6E 74 65 72		prompt6 BYTE "Enter the name of the file to store the compressed grid: ", 0
+	   20 74 68 65 20
+	   6E 61 6D 65 20
+	   6F 66 20 74 68
+	   65 20 66 69 6C
+	   65 20 74 6F 20
+	   73 74 6F 72 65
+	   20 74 68 65 20
+	   63 6F 6D 70 72
+	   65 73 73 65 64
+	   20 67 72 69 64
+	   3A 20 00
+ 00003C9F 45 6E 74 65 72		flattenPrompt BYTE "Enter the range of RGB Values to flatten: ", 0
+	   20 74 68 65 20
+	   72 61 6E 67 65
+	   20 6F 66 20 52
+	   47 42 20 56 61
+	   6C 75 65 73 20
+	   74 6F 20 66 6C
+	   61 74 74 65 6E
+	   3A 20 00
+ 00003CCA 00				flattenRange BYTE ?
+ 00003CCB 43 6F 6D 70 72		text1 BYTE "Compression Ratio: ", 0
+	   65 73 73 69 6F
+	   6E 20 52 61 74
+	   69 6F 3A 20 00
+ 00003CDF 54 68 65 20 63		text2 BYTE "The compression was unsuccessful.", 0
+	   6F 6D 70 72 65
+	   73 73 69 6F 6E
+	   20 77 61 73 20
+	   75 6E 73 75 63
+	   63 65 73 73 66
+	   75 6C 2E 00
+ 00003D01 53 69 7A 65 20		text3 BYTE "Size of original image (in bytes): ", 0
+	   6F 66 20 6F 72
+	   69 67 69 6E 61
+	   6C 20 69 6D 61
+	   67 65 20 28 69
+	   6E 20 62 79 74
+	   65 73 29 3A 20
+	   00
+ 00003D25 53 69 7A 65 20		text4 BYTE "Size of compressed image (in bytes): ", 0
+	   6F 66 20 63 6F
+	   6D 70 72 65 73
+	   73 65 64 20 69
+	   6D 61 67 65 20
+	   28 69 6E 20 62
+	   79 74 65 73 29
+	   3A 20 00
+ 00003D4B 50 65 72 63 65		text5 BYTE "Percentage loss in quality: ", 0
+	   6E 74 61 67 65
+	   20 6C 6F 73 73
+	   20 69 6E 20 71
+	   75 61 6C 69 74
+	   79 3A 20 00
+ 00003D68 54 68 65 20 69		decompressSuccess BYTE "The image has been successfully decompressed. The result has been stored to ", 0
+	   6D 61 67 65 20
+	   68 61 73 20 62
+	   65 65 6E 20 73
+	   75 63 63 65 73
+	   73 66 75 6C 6C
+	   79 20 64 65 63
+	   6F 6D 70 72 65
+	   73 73 65 64 2E
+	   20 54 68 65 20
+	   72 65 73 75 6C
+	   74 20 68 61 73
+	   20 62 65 65 6E
+	   20 73 74 6F 72
+	   65 64 20 74 6F
+	   20 00
+ 00003DB5 54 68 65 20 67		generationSuccess BYTE "The generated RGB grid has been successfully stored to ", 0
+	   65 6E 65 72 61
+	   74 65 64 20 52
+	   47 42 20 67 72
+	   69 64 20 68 61
+	   73 20 62 65 65
+	   6E 20 73 75 63
+	   63 65 73 73 66
+	   75 6C 6C 79 20
+	   73 74 6F 72 65
+	   64 20 74 6F 20
+	   00
+ 00003DED 49 6E 76 61 6C		invalidInputError BYTE "Invalid choice. Please try again.", 0
+	   69 64 20 63 68
+	   6F 69 63 65 2E
+	   20 50 6C 65 61
+	   73 65 20 74 72
+	   79 20 61 67 61
+	   69 6E 2E 00
+ 00003E0F 49 6D 61 67 65		projTitle BYTE "Image Compression with Run Length Encoding Algorithm", 0
+	   20 43 6F 6D 70
+	   72 65 73 73 69
+	   6F 6E 20 77 69
+	   74 68 20 52 75
+	   6E 20 4C 65 6E
+	   67 74 68 20 45
+	   6E 63 6F 64 69
+	   6E 67 20 41 6C
+	   67 6F 72 69 74
+	   68 6D 00
+ 00003E44 23 23 23 23 23		neon BYTE "########  ##       ########", 0
+	   23 23 23 20 20
+	   23 23 20 20 20
+	   20 20 20 20 23
+	   23 23 23 23 23
+	   23 23 00
+ 00003E60 = 0000001C			rowSize = $ - neon
+ 00003E60  23 23 20 20 20			 BYTE "##     ## ##       ##      ", 0
+	   20 20 23 23 20
+	   23 23 20 20 20
+	   20 20 20 20 23
+	   23 20 20 20 20
+	   20 20 00
+ 00003E7C  23 23 20 20 20			 BYTE "##     ## ##       ##      ", 0
+	   20 20 23 23 20
+	   23 23 20 20 20
+	   20 20 20 20 23
+	   23 20 20 20 20
+	   20 20 00
+ 00003E98  23 23 23 23 23			 BYTE "########  ##       ######  ", 0
+	   23 23 23 20 20
+	   23 23 20 20 20
+	   20 20 20 20 23
+	   23 23 23 23 23
+	   20 20 00
+ 00003EB4  23 23 20 20 20			 BYTE "##   ##   ##       ##      ", 0
+	   23 23 20 20 20
+	   23 23 20 20 20
+	   20 20 20 20 23
+	   23 20 20 20 20
+	   20 20 00
+ 00003ED0  23 23 20 20 20			 BYTE "##    ##  ##       ##      ", 0
+	   20 23 23 20 20
+	   23 23 20 20 20
+	   20 20 20 20 23
+	   23 20 20 20 20
+	   20 20 00
+ 00003EEC  23 23 20 20 20			 BYTE "##     ## ######## ########", 0
+	   20 20 23 23 20
+	   23 23 23 23 23
+	   23 23 23 20 23
+	   23 23 23 23 23
+	   23 23 00
+
+ 00003F08 31 2E 20 47 65		menuTextArray BYTE "1. Generate a pseudo-random RGB Grid              ", 0
+	   6E 65 72 61 74
+	   65 20 61 20 70
+	   73 65 75 64 6F
+	   2D 72 61 6E 64
+	   6F 6D 20 52 47
+	   42 20 47 72 69
+	   64 20 20 20 20
+	   20 20 20 20 20
+	   20 20 20 20 20
+	   00
+ 00003F3B = 00000033			menuRowSize = $ - menuTextArray
+ 00003F3B  32 2E 20 56 69					  BYTE "2. View a Compressed Image                        ", 0
+	   65 77 20 61 20
+	   43 6F 6D 70 72
+	   65 73 73 65 64
+	   20 49 6D 61 67
+	   65 20 20 20 20
+	   20 20 20 20 20
+	   20 20 20 20 20
+	   20 20 20 20 20
+	   20 20 20 20 20
+	   00
+ 00003F6E  33 2E 20 56 69					  BYTE "3. View an Uncompressed Image                     ", 0
+	   65 77 20 61 6E
+	   20 55 6E 63 6F
+	   6D 70 72 65 73
+	   73 65 64 20 49
+	   6D 61 67 65 20
+	   20 20 20 20 20
+	   20 20 20 20 20
+	   20 20 20 20 20
+	   20 20 20 20 20
+	   00
+ 00003FA1  34 2E 20 43 6F					  BYTE "4. Compress an Image with LOSSLESS RLE Compression", 0
+	   6D 70 72 65 73
+	   73 20 61 6E 20
+	   49 6D 61 67 65
+	   20 77 69 74 68
+	   20 4C 4F 53 53
+	   4C 45 53 53 20
+	   52 4C 45 20 43
+	   6F 6D 70 72 65
+	   73 73 69 6F 6E
+	   00
+ 00003FD4  35 2E 20 43 6F					  BYTE "5. Compress an Image with LOSSY RLE Compression   ", 0
+	   6D 70 72 65 73
+	   73 20 61 6E 20
+	   49 6D 61 67 65
+	   20 77 69 74 68
+	   20 4C 4F 53 53
+	   59 20 52 4C 45
+	   20 43 6F 6D 70
+	   72 65 73 73 69
+	   6F 6E 20 20 20
+	   00
+ 00004007  36 2E 20 44 65					  BYTE "6. Decompress an Image                            ", 0
+	   63 6F 6D 70 72
+	   65 73 73 20 61
+	   6E 20 49 6D 61
+	   67 65 20 20 20
+	   20 20 20 20 20
+	   20 20 20 20 20
+	   20 20 20 20 20
+	   20 20 20 20 20
+	   20 20 20 20 20
+	   00
+ 0000403A  37 2E 20 45 78					  BYTE "7. Exit				                              ", 0
+	   69 74 09 09 09
+	   09 20 20 20 20
+	   20 20 20 20 20
+	   20 20 20 20 20
+	   20 20 20 20 20
+	   20 20 20 20 20
+	   20 20 20 20 20
+	   20 00
+ 00000000			.code
+				viewImageFromBuffer PROTO, bufferPtr: PTR BYTE
+				decompressImage PROTO, compressedFileNameArg: PTR BYTE
+				displayCompressedImage PROTO, compressedFileNameArg: PTR BYTE
+ 00000000			main PROC
+ 00000000  E8 00000042			call displayMenu
+					;call generateRGBGrid
+					;call viewImageFromBuffer
+					;call displayGrid
+					;call losslessCompression
+					;call displayCompressedImage
+					;call lossyCompression
+					;call decompressImage
+					exit
+ 0000000C			main ENDP
+
+ 0000000C				displayHeader PROC
+ 0000000C  E8 00000000 E			call clrscr ; clear the screen
+						; Display "RLE" Neon Text
+ 00000011  B9 00000007				mov ecx, 7
+ 00000016  BA 00003E44 R			mov edx, OFFSET neon
+ 0000001B					L1:
+ 0000001B  E8 00000000 E				call WriteString
+ 00000020  E8 00000000 E				call crlf
+ 00000025  81 C2 0000001C				add edx, rowSize
+ 0000002B  E2 EE				LOOP L1
+ 0000002D  E8 00000000 E			call crlf
+						; Display Project Title
+ 00000032  BA 00003E0F R			mov edx, OFFSET projTitle
+ 00000037  E8 00000000 E			call WriteString
+ 0000003C  E8 00000000 E			call crlf
+ 00000041  E8 00000000 E			call crlf
+ 00000046  C3					RET
+ 00000047				displayHeader ENDP
+
+ 00000047				displayMenu PROC
+						LOCAL choice: DWORD
+						; Display "RLE" and the project title on top
+ 0000004D  E8 FFFFFFBA				call displayHeader
+						; Display a list of choices
+ 00000052  B9 00000007				mov ecx, 7
+ 00000057  BA 00003F08 R			mov edx, OFFSET menuTextArray
+ 0000005C					L2:
+ 0000005C  E8 00000000 E				call WriteString
+ 00000061  E8 00000000 E				call crlf
+ 00000066  81 C2 00000033				add edx, menuRowSize
+ 0000006C  E2 EE				LOOP L2
+ 0000006E  E8 00000000 E			call crlf
+
+						; ask the user to enter a choice between 1 and 7
+ 00000073					takeInput:
+ 00000073  BA 00003BAC R			mov edx, OFFSET choicePrompt
+ 00000078  E8 00000000 E			call WriteString
+ 0000007D  E8 00000000 E			call ReadInt
+ 00000082  89 45 FC				mov choice, eax
+						; check if the entered number is between 1 and 7
+ 00000085  83 7D FC 07				cmp choice, 7
+ 00000089  0F 87 000001EF			ja invalidInput
+ 0000008F  83 7D FC 01				cmp choice, 1
+ 00000093  0F 82 000001E5			jb invalidInput
+						; input is valid
+ 00000099  83 7D FC 01				cmp choice, 1
+ 0000009D  74 33				je option1
+ 0000009F  83 7D FC 02				cmp choice, 2
+ 000000A3  74 62				je option2
+ 000000A5  83 7D FC 03				cmp choice, 3
+ 000000A9  0F 84 000000B3			je option3
+ 000000AF  83 7D FC 04				cmp choice, 4
+ 000000B3  0F 84 000000E5			je option4
+ 000000B9  83 7D FC 05				cmp choice, 5
+ 000000BD  0F 84 00000126			je option5
+ 000000C3  83 7D FC 06				cmp choice, 6
+ 000000C7  0F 84 00000164			je option6
+ 000000CD  E9 000001C0				jmp quit
+ 000000D2					option1:
+							; copy the default file name (default.txt) to the fileName variable
+ 000000D2  FC						cld ; direction = forward
+ 000000D3  BE 00003A98 R				mov esi, OFFSET defaultFileName
+ 000000D8  BF 00003AA4 R				mov edi, OFFSET fileName
+ 000000DD  B9 0000000C					mov ecx, LENGTHOF defaultFileName
+ 000000E2  F3/ A4					rep movsb
+ 000000E4  E8 FFFFFF23					call displayHeader
+ 000000E9  E8 000001A6					call generateRGBGrid
+							invoke viewImageFromBuffer, addr buffer
+ 000000F8  E8 00000000 E				call WaitMsg
+ 000000FD  E8 FFFFFF45					call displayMenu ; go back to the main menu
+ 00000102  E9 0000018B					jmp quit
+ 00000107					option2:
+ 00000107  E8 FFFFFF00					call displayHeader
+							; copy the default file name (default.txt) to the decompressedFileName variable
+							; we need to do this to store the decompressed file
+ 0000010C  FC						cld ; direction = forward
+ 0000010D  BE 00003A98 R				mov esi, OFFSET defaultFileName
+ 00000112  BF 00003B44 R				mov edi, OFFSET decompressedFileName
+ 00000117  B9 0000000C					mov ecx, LENGTHOF defaultFileName
+							; ask the user to enter the name of the compressed file
+ 0000011C  BA 00003BEA R				mov edx, OFFSET prompt3 ; Enter the name of the compressed file prompt
+ 00000121  E8 00000000 E				call WriteString
+ 00000126  B9 00000050					mov ecx, maxNoOfChars
+ 0000012B  BA 00003AA4 R				mov edx, OFFSET fileName
+ 00000130  E8 00000000 E				call ReadString
+							invoke displayCompressedImage, ADDR fileName
+							invoke decompressImage, ADDR fileName
+							invoke viewImageFromBuffer, addr outputBuffer
+ 00000153  E8 00000000 E				call WaitMsg
+ 00000158  E8 FFFFFEEA					call displayMenu ; go back to the main menu
+ 0000015D  E9 00000130					jmp quit
+ 00000162					option3:
+ 00000162  E8 FFFFFEA5					call displayHeader
+							; ask the user to enter the name of the file to view
+ 00000167  BA 00003C12 R				mov edx, OFFSET prompt4 ; Enter the name of the uncompressed file prompt
+ 0000016C  E8 00000000 E				call WriteString
+ 00000171  B9 00000050					mov ecx, maxNoOfChars
+ 00000176  BA 00003AA4 R				mov edx, OFFSET fileName
+ 0000017B  E8 00000000 E				call ReadString
+ 00000180  E8 000001D4					call displayGrid
+							invoke viewImageFromBuffer, addr buffer
+ 0000018F  E8 00000000 E				call WaitMsg
+ 00000194  E8 FFFFFEAE					call displayMenu ; go back to the main menu
+ 00000199  E9 000000F4					jmp quit
+ 0000019E					option4:
+ 0000019E  E8 FFFFFE69					call displayHeader
+							; ask the user to enter the name of the file to compress
+ 000001A3  BA 00003C3C R				mov edx, OFFSET prompt5 ; Enter the name of the file to compress prompt
+ 000001A8  E8 00000000 E				call WriteString
+ 000001AD  B9 00000050					mov ecx, maxNoOfChars
+ 000001B2  BA 00003AA4 R				mov edx, OFFSET fileName
+ 000001B7  E8 00000000 E				call ReadString
+							; ask the user to enter the name of the file where the result should be stored
+ 000001BC  BA 00003C65 R				mov edx, OFFSET prompt6 ; Enter the name of the file to store the result prompt
+ 000001C1  E8 00000000 E				call WriteString
+ 000001C6  B9 00000050					mov ecx, maxNoOfChars
+ 000001CB  BA 00003AF4 R				mov edx, OFFSET compressedFileName
+ 000001D0  E8 00000000 E				call ReadString
+ 000001D5  E8 000001FB					call losslessCompression
+ 000001DA  E8 00000000 E				call WaitMsg
+ 000001DF  E8 FFFFFE63					call displayMenu ; go back to the main menu
+ 000001E4  E9 000000A9					jmp quit
+ 000001E9					option5:
+ 000001E9  E8 FFFFFE1E					call displayHeader
+							; ask the user to enter the name of the file to compress
+ 000001EE  BA 00003C3C R				mov edx, OFFSET prompt5 ; Enter the name of the file to compress prompt
+ 000001F3  E8 00000000 E				call WriteString
+ 000001F8  B9 00000050					mov ecx, maxNoOfChars
+ 000001FD  BA 00003AA4 R				mov edx, OFFSET fileName
+ 00000202  E8 00000000 E				call ReadString
+							; ask the user to enter the name of the file where the result should be stored
+ 00000207  BA 00003C65 R				mov edx, OFFSET prompt6 ; Enter the name of the file to store the result prompt
+ 0000020C  E8 00000000 E				call WriteString
+ 00000211  B9 00000050					mov ecx, maxNoOfChars
+ 00000216  BA 00003AF4 R				mov edx, OFFSET compressedFileName
+ 0000021B  E8 00000000 E				call ReadString
+ 00000220  E8 000003DF					call lossyCompression
+ 00000225  E8 00000000 E				call WaitMsg
+ 0000022A  E8 FFFFFE18					call displayMenu ; go back to the main menu
+ 0000022F  EB 61					jmp quit
+ 00000231					option6:
+ 00000231  E8 FFFFFDD6					call displayHeader
+							; ask the user to enter the name of the file to decompress
+ 00000236  BA 00003BEA R				mov edx, OFFSET prompt3 ; Enter the name of the compressed file prompt
+ 0000023B  E8 00000000 E				call WriteString
+ 00000240  B9 00000050					mov ecx, maxNoOfChars
+ 00000245  BA 00003AA4 R				mov edx, OFFSET fileName
+ 0000024A  E8 00000000 E				call ReadString
+							; ask the user to enter the name of the file where the result should be stored
+ 0000024F  BA 00003C12 R				mov edx, OFFSET prompt4 ; Enter the name of the uncompressed file prompt
+ 00000254  E8 00000000 E				call WriteString
+ 00000259  B9 00000050					mov ecx, maxNoOfChars
+ 0000025E  BA 00003B44 R				mov edx, OFFSET decompressedFileName
+ 00000263  E8 00000000 E				call ReadString
+							invoke decompressImage, ADDR fileName
+ 00000272  E8 00000000 E				call WaitMsg
+ 00000277  E8 FFFFFDCB					call displayMenu ; go back to the main menu
+ 0000027C  EB 14				jmp quit
+ 0000027E					invalidInput:
+ 0000027E  BA 00003DED R				mov edx, OFFSET invalidInputError
+ 00000283  E8 00000000 E				call WriteString
+ 00000288  E8 00000000 E				call crlf
+ 0000028D  E9 FFFFFDE1					jmp takeInput ; ask the user to enter another number
+ 00000292					quit:
+						RET
+ 00000294				displayMenu ENDP
+
+ 00000294				generateRGBGrid PROC
+ 00000294  BA 00003BC1 R			mov edx, OFFSET prompt1
+ 00000299  E8 00000000 E			call WriteString
+ 0000029E  E8 00000000 E			call ReadInt
+ 000002A3  A3 00003B98 R			mov imageWidth, eax
+ 000002A8  BA 00003BD5 R			mov edx, OFFSET prompt2
+ 000002AD  E8 00000000 E			call WriteString
+ 000002B2  E8 00000000 E			call ReadInt
+ 000002B7  A3 00003B9C R			mov imageHeight, eax
+						; Generate an RGB Grid
+						; the first two bytes of the file will contain
+						; the width and height of the image respectively
+ 000002BC  BE 00000000 R			mov esi, OFFSET buffer
+ 000002C1  A0 00003B98 R			mov al, BYTE PTR imageWidth
+ 000002C6  88 06				mov BYTE PTR [esi], al
+ 000002C8  46					inc esi
+ 000002C9  A0 00003B9C R			mov al, BYTE PTR imageHeight
+ 000002CE  88 06				mov BYTE PTR [esi], al
+ 000002D0  46					inc esi
+ 000002D1  A1 00003B98 R			mov eax, imageWidth
+ 000002D6  F7 25 00003B9C R			mul imageHeight
+ 000002DC  8B C8				mov ecx, eax
+ 000002DE  A3 00003BA0 R			mov totalNoOfBytes, eax
+ 000002E3  83 05 00003BA0 R			add totalNoOfBytes, 2
+	   02
+						; re-seed the random number generator with the current time in hundredths of seconds
+ 000002EA  E8 00000000 E			call Randomize
+ 000002EF					L1:
+ 000002EF  B8 00000100					mov eax, 256 ; get a random number between 0 to 255
+ 000002F4  E8 00000000 E				call RandomRange
+ 000002F9  88 06					mov BYTE PTR [esi], al
+ 000002FB  46						inc esi
+ 000002FC  E2 F1				LOOP L1
+
+ 000002FE  BA 00003AA4 R			mov edx, OFFSET fileName
+ 00000303  E8 00000000 E			call CreateOutputFile
+ 00000308  A3 00003B94 R			mov filehandle, EAX
+ 0000030D  A1 00003B94 R			mov eax, fileHandle
+ 00000312  BA 00000000 R			mov edx, OFFSET buffer
+ 00000317  8B 0D 00003BA0 R			mov ecx, totalNoOfBytes
+ 0000031D  E8 00000000 E			call WriteToFile
+ 00000322  72 25				jc show_error_message
+						; the generated grid has been stored in a file
+						; tell the user the file name
+ 00000324  BA 00003DB5 R			mov edx, OFFSET generationSuccess
+ 00000329  E8 00000000 E			call WriteString
+ 0000032E  BA 00003AA4 R			mov edx, OFFSET fileName
+ 00000333  E8 00000000 E			call WriteString
+ 00000338  E8 00000000 E			call crlf
+ 0000033D  A3 00003BA4 R			mov bytesWritten, eax
+ 00000342  A1 00003B94 R			mov eax, fileHandle
+ 00000347  EB 05				jmp quit
+ 00000349					show_error_message:
+							; EAX contains a system error code
+ 00000349  E8 00000000 E				call WriteWindowsMsg
+ 0000034E					quit:
+ 0000034E  A1 00003B94 R				mov eax, fileHandle
+ 00000353  E8 00000000 E				call CloseFile
+ 00000358  C3						RET
+ 00000359				generateRGBGrid ENDP
+
+ 00000359				displayGrid PROC
+						LOCAL count: BYTE
+ 0000035F  C6 45 FF 00				mov count, 0
+						; try to open the file
+ 00000363  BA 00003AA4 R			mov EDX, OFFSET fileName
+ 00000368  E8 00000000 E			call OpenInputFile
+ 0000036D  A3 00003B94 R			mov fileHandle, EAX
+ 00000372  A1 00003B94 R			mov eax, fileHandle
+ 00000377  BA 00000000 R			mov edx, OFFSET buffer
+ 0000037C  B9 00001388				mov ecx, BUFSIZE
+ 00000381  E8 00000000 E			call ReadFromFile
+						; if CF = 1, the file couldn't be read
+ 00000386  72 3C				jc show_error_message
+						; if CF = 0, the file was read successfully
+						; EAX contains the number of bytes read
+						; the file's contents go to the BUFFER variable
+						; mov bytesRead, eax
+ 00000388  BE 00000000 R			mov esi, OFFSET buffer
+ 0000038D  B9 00000000				mov ecx, 0
+						; store the image width in BL
+ 00000392  8A 1E				mov bl, BYTE PTR [esi]
+ 00000394  46					inc esi
+						; store the image height in CL
+ 00000395  8A 0E				mov cl, BYTE PTR [esi]
+ 00000397  46					inc esi
+						; the outer loop runs <image height times>
+ 00000398					L1:
+ 00000398  88 4D FF					mov count, cl
+ 0000039B  8A CB					mov cl, bl
+							; the inner loop runs <image width> times
+ 0000039D						L2:
+								; It is necessary to make eax = 0 here,
+								; so that the data in EAX apart from that in the AL portion
+								; doesn't affect the output
+ 0000039D  B8 00000000						mov eax, 0
+ 000003A2  8A 06						mov al, BYTE PTR [esi]
+ 000003A4  E8 00000000 E					call WriteDec
+ 000003A9  B0 20						mov al, 32
+ 000003AB  E8 00000000 E					call WriteChar
+ 000003B0  46							inc esi
+ 000003B1  E2 EA					LOOP L2
+ 000003B3  E8 00000000 E				call crlf
+ 000003B8  8A 4D FF					mov cl, count
+ 000003BB  E2 DB				LOOP L1
+ 000003BD  E8 00000000 E			call crlf
+ 000003C2  EB 05				jmp quit
+ 000003C4					show_error_message:
+							; EAX contains a system error code
+ 000003C4  E8 00000000 E				call WriteWindowsMsg
+ 000003C9					quit:
+ 000003C9  A1 00003B94 R				mov eax, fileHandle
+ 000003CE  E8 00000000 E				call CloseFile
+							RET
+ 000003D5				displayGrid ENDP
+
+ 000003D5				losslessCompression PROC
+						LOCAL count: BYTE, RGBVal: BYTE, bytesInOutputFile: DWORD
+						; try to open the file to compress
+ 000003DB  BA 00003AA4 R			mov EDX, OFFSET fileName
+ 000003E0  E8 00000000 E			call OpenInputFile
+ 000003E5  A3 00003B94 R			mov fileHandle, EAX
+ 000003EA  A1 00003B94 R			mov eax, fileHandle
+ 000003EF  BA 00000000 R			mov edx, OFFSET buffer
+ 000003F4  B9 00001388				mov ecx, BUFSIZE
+ 000003F9  E8 00000000 E			call ReadFromFile
+						; if CF = 1, the file couldn't be read
+ 000003FE  0F 82 0000013F			jc show_error_message
+ 00000404  A3 00003BA8 R			mov bytesRead, eax
+ 00000409  A1 00003B94 R			mov eax, fileHandle
+ 0000040E  E8 00000000 E			call CloseFile
+
+ 00000413  C6 45 FF 01				mov count, 1
+ 00000417  BE 00000000 R			mov esi, OFFSET buffer
+ 0000041C  BF 00001388 R			mov edi, OFFSET outputBuffer
+						; reserve the first two bytes as the imageWidth and imageHeight respectively
+ 00000421  C7 45 F8				mov bytesInOutputFile, 2
+	   00000002
+ 00000428  8A 1E				mov bl, BYTE PTR [esi]
+ 0000042A  88 1F				mov [edi], bl
+ 0000042C  8A C3				mov al, bl
+ 0000042E  8A 5E 01				mov bl, BYTE PTR [esi+1]
+ 00000431  88 5F 01				mov [edi+1], bl
+ 00000434  83 C6 02				add esi, 2
+ 00000437  83 C7 02				add edi, 2
+ 0000043A  F6 E3				mul bl
+ 0000043C  0F B7 C8				movzx ecx, ax
+						; the last comparison should be done with the
+						; second last and last RGB value, so run the loop
+						; till noOfRGBValues-1
+ 0000043F  49					dec ecx
+ 00000440					L1:
+ 00000440  8A 1E					mov bl, BYTE PTR [esi]
+ 00000442  3A 5E 01					cmp bl, BYTE PTR [esi+1]
+ 00000445  74 02					je identicalRGB
+ 00000447  EB 08					jmp nonIdenticalRGB
+ 00000449						identicalRGB:
+ 00000449  FE 45 FF						inc count
+ 0000044C  88 5D FE						mov RGBVal, bl
+ 0000044F  EB 15						jmp next
+ 00000451						nonIdenticalRGB:
+ 00000451  8A 1E						mov bl, BYTE PTR [esi]
+ 00000453  8A 45 FF						mov al, count
+ 00000456  88 07						mov [edi], al
+ 00000458  FF 45 F8						inc bytesInOutputFile
+ 0000045B  47							inc edi
+ 0000045C  88 1F						mov [edi], bl
+ 0000045E  FF 45 F8						inc bytesInOutputFile
+ 00000461  47							inc edi
+ 00000462  C6 45 FF 01						mov count, 1
+ 00000466						next:
+ 00000466  46							inc esi
+ 00000467  E2 D7				LOOP L1
+						; for the last pixel
+ 00000469  8A 45 FF				mov al, count
+ 0000046C  88 07				mov [edi], al
+ 0000046E  FF 45 F8				inc bytesInOutputFile
+ 00000471  47					inc edi
+ 00000472  88 1F				mov [edi], bl
+ 00000474  FF 45 F8				inc bytesInOutputFile
+ 00000477  BA 00003AF4 R			mov edx, OFFSET compressedFileName
+ 0000047C  E8 00000000 E			call CreateOutputFile
+ 00000481  A3 00003B94 R			mov filehandle, EAX
+ 00000486  A1 00003B94 R			mov  eax,fileHandle
+ 0000048B  BA 00001388 R			mov  edx,OFFSET outputBuffer
+ 00000490  8B 4D F8				mov  ecx, bytesInOutputFile
+ 00000493  E8 00000000 E			call WriteToFile
+ 00000498  0F 82 000000A5			jc  show_error_message
+						; Show the size of the compressed image & original image
+ 0000049E  BA 00003D01 R			mov edx, OFFSET text3
+ 000004A3  E8 00000000 E			call WriteString
+ 000004A8  A1 00003BA8 R			mov eax, bytesRead
+ 000004AD  E8 00000000 E			call WriteDec
+ 000004B2  E8 00000000 E			call crlf
+ 000004B7  BA 00003D25 R			mov edx, OFFSET text4
+ 000004BC  E8 00000000 E			call WriteString
+ 000004C1  8B 45 F8				mov eax, bytesInOutputFile
+ 000004C4  E8 00000000 E			call WriteDec
+ 000004C9  E8 00000000 E			call crlf
+
+						; Check if the compressed image is actually smaller than the original image
+ 000004CE  A1 00003BA8 R			mov eax, bytesRead ; eax = original size in bytes
+ 000004D3  3B 45 F8				cmp eax, bytesInOutputFile
+						; if original size > compressed size, display compression ratio
+ 000004D6  77 02				ja displayCompressionRatio
+ 000004D8  EB 58				jmp compressionFailed
+ 000004DA					displayCompressionRatio:
+						; Calculate and display the compression ratio
+						; Compression Ratio = (Original Size (in Bytes) - New Size (in Bytes))/(Original Size (in Bytes))
+ 000004DA  BA 00003CCB R			mov edx, OFFSET text1
+ 000004DF  E8 00000000 E			call WriteString
+ 000004E4  A1 00003BA8 R			mov eax, bytesRead ; eax = original size in bytes
+ 000004E9  2B 45 F8				sub eax, bytesInOutputFile ; eax = original size in bytes - new size in bytes
+ 000004EC  BB 00000064				mov ebx, 100
+ 000004F1  F7 E3				mul ebx
+ 000004F3  BA 00000000				mov edx, 0
+ 000004F8  F7 35 00003BA8 R			div bytesRead
+ 000004FE  E8 00000000 E			call WriteDec
+ 00000503  B8 0000002E				mov eax, '.'
+ 00000508  E8 00000000 E			call WriteChar
+						; EDX contains the remainder
+						; Using this, we can obtain the fractional part (remainder*10000)/bytesRead
+ 0000050D  8B C2				mov eax, edx
+ 0000050F  BB 00002710				mov ebx, 10000
+ 00000514  F7 E3				mul ebx
+ 00000516  F7 35 00003BA8 R			div bytesRead
+ 0000051C  E8 00000000 E			call WriteDec
+ 00000521  B8 00000025				mov eax, '%'
+ 00000526  E8 00000000 E			call WriteChar
+ 0000052B  E8 00000000 E			call crlf
+ 00000530  EB 16				jmp quit
+ 00000532					compressionFailed:
+ 00000532  BA 00003CDF R				mov edx, OFFSET text2
+ 00000537  E8 00000000 E				call WriteString
+ 0000053C  E8 00000000 E				call crlf
+ 00000541  EB 05					jmp quit
+ 00000543					show_error_message:
+							; EAX contains a system error code
+ 00000543  E8 00000000 E				call WriteWindowsMsg
+ 00000548					quit:
+ 00000548  A1 00003B94 R				mov eax, fileHandle
+ 0000054D  E8 00000000 E				call CloseFile
+							RET
+ 00000554				losslessCompression ENDP
+
+ 00000554				displayCompressedImage PROC, compressedFileNameArg: PTR BYTE
+						LOCAL rowCount: DWORD, totalRGBVals: WORD, imgWidth: BYTE, imgHeight: BYTE
+ 0000055A  C7 45 FC				mov rowCount, 0
+	   00000000
+						; try to open the file
+ 00000561  8B 55 08				mov EDX, compressedFileNameArg
+ 00000564  E8 00000000 E			call OpenInputFile
+ 00000569  A3 00003B94 R			mov fileHandle, EAX
+ 0000056E  A1 00003B94 R			mov eax, fileHandle
+ 00000573  BA 00000000 R			mov edx, OFFSET buffer
+ 00000578  B9 00001388				mov ecx, BUFSIZE
+ 0000057D  E8 00000000 E			call ReadFromFile
+						; if CF = 1, the file couldn't be read
+ 00000582  72 6D				jc show_error_message
+						; if CF = 0, the file was read successfully
+						; the file's contents go to the BUFFER variable
+ 00000584  E8 00000000 E			call crlf
+ 00000589  BE 00000000 R			mov esi, OFFSET buffer
+ 0000058E  B9 00000000				mov ecx, 0
+						; get the image width from the file
+ 00000593  8A 1E				mov bl, BYTE PTR [esi]
+ 00000595  88 5D F9				mov imgWidth, bl
+						; get the image height from the file
+ 00000598  8A 5E 01				mov bl, BYTE PTR [esi+1]
+ 0000059B  88 5D F8				mov imgHeight, bl
+ 0000059E  8A 45 F9				mov al, imgWidth
+ 000005A1  F6 E3				mul bl
+ 000005A3  66| 89 45 FA				mov totalRGBVals, ax
+ 000005A7  83 C6 02				add esi, 2
+ 000005AA					L1:
+							; get the run
+ 000005AA  8A 0E					mov cl, BYTE PTR [esi]
+ 000005AC  46						inc esi
+ 000005AD						L2:
+								; It is necessary to make eax = 0 here,
+								; so that the data in EAX apart from that in the AL portion
+								; doesn't affect the output
+ 000005AD  B8 00000000						mov eax, 0
+ 000005B2  8A 06						mov al, BYTE PTR [esi]
+ 000005B4  E8 00000000 E					call WriteDec
+ 000005B9  FF 45 FC						inc rowCount
+ 000005BC  0F B6 45 F9						movzx eax, imgWidth
+								; if the row count has reached the width of the image,
+								; print a new line and reset the row count
+ 000005C0  39 45 FC						cmp rowCount, eax
+ 000005C3  75 0E						jne printSpace
+ 000005C5  E8 00000000 E					call crlf
+ 000005CA  C7 45 FC						mov rowCount, 0
+	   00000000
+ 000005D1  EB 07						jmp next
+ 000005D3							printSpace:
+ 000005D3  B0 20							mov al, 32
+ 000005D5  E8 00000000 E						call WriteChar
+ 000005DA							next:
+ 000005DA  66| FF 4D FA							dec totalRGBVals
+ 000005DE  66| 83 7D FA							cmp totalRGBVals, 0
+	   00
+ 000005E3  74 05							je imageComplete
+ 000005E5  E2 C6					LOOP L2
+ 000005E7  46						inc esi
+ 000005E8  EB C0					jmp L1
+ 000005EA					imageComplete:
+ 000005EA  E8 00000000 E			call crlf
+ 000005EF  EB 05				jmp quit
+ 000005F1					show_error_message:
+							; EAX contains a system error code
+ 000005F1  E8 00000000 E				call WriteWindowsMsg
+ 000005F6					quit:
+ 000005F6  A1 00003B94 R				mov eax, fileHandle
+ 000005FB  E8 00000000 E				call CloseFile
+						RET
+ 00000604				displayCompressedImage ENDP
+
+ 00000604				lossyCompression PROC
+						LOCAL count: BYTE, RGBVal: BYTE, bytesInOutputFile: DWORD, noOfRGBVals: DWORD, temp: DWORD
+						; Ask the user to enter the range of flattening
+ 0000060A  BA 00003C9F R			mov edx, OFFSET flattenPrompt
+ 0000060F  E8 00000000 E			call WriteString
+ 00000614  E8 00000000 E			call ReadInt
+ 00000619  A2 00003CCA R			mov flattenRange, al
+						; try to open the file to compress
+ 0000061E  BA 00003AA4 R			mov EDX, OFFSET fileName
+ 00000623  E8 00000000 E			call OpenInputFile
+ 00000628  A3 00003B94 R			mov fileHandle, EAX
+ 0000062D  A1 00003B94 R			mov eax, fileHandle
+ 00000632  BA 00000000 R			mov edx, OFFSET buffer
+ 00000637  B9 00001388				mov ecx, BUFSIZE
+ 0000063C  E8 00000000 E			call ReadFromFile
+						; if CF = 1, the file couldn't be read
+ 00000641  0F 82 00000261			jc show_error_message
+ 00000647  A3 00003BA8 R			mov bytesRead, eax
+ 0000064C  A1 00003B94 R			mov eax, fileHandle
+ 00000651  E8 00000000 E			call CloseFile
+
+						; Before flattening the grid, backup the original grid
+						; so that we can later determine the loss in quality
+ 00000656  BE 00000000 R			mov esi, OFFSET buffer
+ 0000065B  BF 00002710 R			mov edi, OFFSET backupOfBuffer
+ 00000660  B8 00000000				mov eax, 0
+ 00000665  BB 00000000				mov ebx, 0
+ 0000066A  8A 06				mov al, BYTE PTR [esi]
+ 0000066C  A3 00003B98 R			mov imageWidth, eax
+ 00000671  8A 5E 01				mov bl, BYTE PTR [esi+1]
+ 00000674  89 1D 00003B9C R			mov imageHeight, ebx
+ 0000067A  83 C6 02				add esi, 2
+ 0000067D  83 C7 02				add edi, 2
+ 00000680  F6 E3				mul bl
+ 00000682  0F B7 C8				movzx ecx, ax
+ 00000685  89 4D F4				mov noOfRGBVals, ecx
+ 00000688					L0:
+ 00000688  8A 1E					mov bl, BYTE PTR [esi]
+ 0000068A  88 1D 00002710 R				mov BYTE PTR [backupOfBuffer], bl
+ 00000690  46						inc esi
+ 00000691  47						inc edi
+ 00000692  E2 F4				LOOP L0
+						; Flatten the current RGB grid (in the buffer array)
+ 00000694  BE 00000000 R			mov esi, OFFSET buffer
+ 00000699  8A 06				mov al, BYTE PTR [esi]
+ 0000069B  8A 5E 01				mov bl, BYTE PTR [esi+1]
+ 0000069E  83 C6 02				add esi, 2
+ 000006A1  F6 E3				mul bl
+ 000006A3  0F B7 C8				movzx ecx, ax
+						; the last comparison should be done with the
+						; second last and last RGB value, so run the loop
+						; till noOfRGBValues-1
+ 000006A6  49					dec ecx
+ 000006A7					L1:
+							; we need the absolute difference between the two RGB values
+ 000006A7  8A 1E					mov bl, BYTE PTR [esi]
+ 000006A9  8A 7E 01					mov bh, BYTE PTR [esi+1]
+ 000006AC  3A DF					cmp bl, bh
+ 000006AE  77 0A					ja diff1 ; [esi] > [esi+1]
+							; [esi] <= [esi+1]
+ 000006B0  2A FB					sub bh, bl
+ 000006B2  3A 3D 00003CCA R				cmp bh, flattenRange
+ 000006B8  EB 08					jmp checkFlatten
+ 000006BA						diff1:
+ 000006BA  2A DF						sub bl, bh
+								; acceptable range for flattening = flattenRange
+ 000006BC  3A 1D 00003CCA R					cmp bl, flattenRange
+ 000006C2						checkFlatten:
+ 000006C2  76 02					jbe flatten
+ 000006C4  EB 05					jmp next
+ 000006C6						flatten:
+ 000006C6  8A 1E						mov bl, [esi]
+ 000006C8  88 5E 01						mov [esi+1], bl
+ 000006CB						next:
+ 000006CB  46							inc esi
+ 000006CC  E2 D9				LOOP L1
+ 000006CE  C6 45 FF 01				mov count, 1
+ 000006D2  BE 00000000 R			mov esi, OFFSET buffer
+ 000006D7  BF 00001388 R			mov edi, OFFSET outputBuffer
+						; reserve the first two bytes as the imageWidth and imageHeight respectively
+ 000006DC  C7 45 F8				mov bytesInOutputFile, 2
+	   00000002
+ 000006E3  8A 1E				mov bl, BYTE PTR [esi]
+ 000006E5  88 1F				mov [edi], bl
+ 000006E7  8A C3				mov al, bl
+ 000006E9  8A 5E 01				mov bl, BYTE PTR [esi+1]
+ 000006EC  88 5F 01				mov [edi+1], bl
+ 000006EF  83 C6 02				add esi, 2
+ 000006F2  83 C7 02				add edi, 2
+ 000006F5  F6 E3				mul bl
+ 000006F7  0F B7 C8				movzx ecx, ax
+						; the last comparison should be done with the
+						; second last and last RGB value, so run the loop
+						; till noOfRGBValues-1
+ 000006FA  49					dec ecx
+ 000006FB					L2:
+ 000006FB  8A 1E					mov bl, BYTE PTR [esi]
+ 000006FD  3A 5E 01					cmp bl, BYTE PTR [esi+1]
+ 00000700  74 02					je identicalRGB
+ 00000702  EB 08					jmp nonIdenticalRGB
+ 00000704						identicalRGB:
+ 00000704  FE 45 FF						inc count
+ 00000707  88 5D FE						mov RGBVal, bl
+ 0000070A  EB 15						jmp next2
+ 0000070C						nonIdenticalRGB:
+ 0000070C  8A 1E						mov bl, BYTE PTR [esi]
+ 0000070E  8A 45 FF						mov al, count
+ 00000711  88 07						mov [edi], al
+ 00000713  FF 45 F8						inc bytesInOutputFile
+ 00000716  47							inc edi
+ 00000717  88 1F						mov [edi], bl
+ 00000719  FF 45 F8						inc bytesInOutputFile
+ 0000071C  47							inc edi
+ 0000071D  C6 45 FF 01						mov count, 1
+ 00000721						next2:
+ 00000721  46							inc esi
+ 00000722  E2 D7				LOOP L2
+						; for the last row
+ 00000724  8A 45 FF				mov al, count
+ 00000727  88 07				mov [edi], al
+ 00000729  FF 45 F8				inc bytesInOutputFile
+ 0000072C  47					inc edi
+ 0000072D  88 1F				mov [edi], bl
+ 0000072F  FF 45 F8				inc bytesInOutputFile
+ 00000732  BA 00003AF4 R			mov edx, OFFSET compressedFileName
+ 00000737  E8 00000000 E			call CreateOutputFile
+ 0000073C  A3 00003B94 R			mov filehandle, EAX
+ 00000741  A1 00003B94 R			mov  eax,fileHandle
+ 00000746  BA 00001388 R			mov  edx,OFFSET outputBuffer
+ 0000074B  8B 4D F8				mov  ecx, bytesInOutputFile
+ 0000074E  E8 00000000 E			call WriteToFile
+ 00000753  A1 00003B94 R			mov eax, fileHandle
+ 00000758  E8 00000000 E			call CloseFile
+ 0000075D  0F 82 00000145			jc  show_error_message
+						; Show the size of the compressed image & original image
+ 00000763  BA 00003D01 R			mov edx, OFFSET text3
+ 00000768  E8 00000000 E			call WriteString
+ 0000076D  A1 00003BA8 R			mov eax, bytesRead
+ 00000772  E8 00000000 E			call WriteDec
+ 00000777  E8 00000000 E			call crlf
+ 0000077C  BA 00003D25 R			mov edx, OFFSET text4
+ 00000781  E8 00000000 E			call WriteString
+ 00000786  8B 45 F8				mov eax, bytesInOutputFile
+ 00000789  E8 00000000 E			call WriteDec
+ 0000078E  E8 00000000 E			call crlf
+						; Check if the compressed image is actually smaller than the original image
+ 00000793  A1 00003BA8 R			mov eax, bytesRead ; eax = original size in bytes
+ 00000798  3B 45 F8				cmp eax, bytesInOutputFile
+						; if original size > compressed size, display compression ratio
+ 0000079B  77 02				ja displayCompressionRatio
+ 0000079D  EB 58				jmp compressionFailed
+ 0000079F					displayCompressionRatio:
+						; Calculate and display the compression ratio
+						; Compression Ratio = (Original Size (in Bytes) - New Size (in Bytes))/(Original Size (in Bytes))
+ 0000079F  BA 00003CCB R			mov edx, OFFSET text1
+ 000007A4  E8 00000000 E			call WriteString
+ 000007A9  A1 00003BA8 R			mov eax, bytesRead ; eax = original size in bytes
+ 000007AE  2B 45 F8				sub eax, bytesInOutputFile ; eax = original size in bytes - new size in bytes
+ 000007B1  BB 00000064				mov ebx, 100
+ 000007B6  F7 E3				mul ebx
+ 000007B8  BA 00000000				mov edx, 0
+ 000007BD  F7 35 00003BA8 R			div bytesRead
+ 000007C3  E8 00000000 E			call WriteDec
+ 000007C8  B8 0000002E				mov eax, '.'
+ 000007CD  E8 00000000 E			call WriteChar
+						; EDX contains the remainder
+						; Using this, we can obtain the fractional part (remainder*10000)/bytesRead
+ 000007D2  8B C2				mov eax, edx
+ 000007D4  BB 00002710				mov ebx, 10000
+ 000007D9  F7 E3				mul ebx
+ 000007DB  F7 35 00003BA8 R			div bytesRead
+ 000007E1  E8 00000000 E			call WriteDec
+ 000007E6  B8 00000025				mov eax, '%'
+ 000007EB  E8 00000000 E			call WriteChar
+ 000007F0  E8 00000000 E			call crlf
+ 000007F5  EB 0F				jmp calcDisplayLossOfQuality
+ 000007F7					compressionFailed:
+ 000007F7  BA 00003CDF R				mov edx, OFFSET text2
+ 000007FC  E8 00000000 E				call WriteString
+ 00000801  E8 00000000 E				call crlf
+
+						; Calculate & Display the Loss of Quality
+ 00000806					calcDisplayLossOfQuality:
+ 00000806  8B 4D F4				mov ecx, noOfRGBVals
+ 00000809  BE 00000002				mov esi, 2
+ 0000080E  B8 00000000				mov eax, 0
+ 00000813  BB 00000000				mov ebx, 0
+ 00000818					L3:
+ 00000818  8A 9E 00002710 R				mov bl, backupOfBuffer[esi]
+ 0000081E  3A 9E 00000000 R				cmp bl, buffer[esi]
+ 00000824  72 08					JC L31
+ 00000826  2A 9E 00000000 R				sub bl, buffer[esi]
+ 0000082C  EB 0C					jmp L32
+ 0000082E						L31:
+ 0000082E  8A 9E 00000000 R					mov bl, buffer[esi]
+ 00000834  2A 9E 00002710 R					sub bl, backupOfBuffer[esi]
+ 0000083A						L32:
+ 0000083A  02 C3						add al, bl
+ 0000083C  46							inc esi
+ 0000083D  E2 D9				Loop L3
+
+						; Display the string "Percentage loss in quality: "
+ 0000083F  BA 00003D4B R			mov edx, OFFSET text5
+ 00000844  E8 00000000 E			call WriteString
+						; multiply sum of differences by 100 to aid in percentage calculation
+ 00000849  C7 45 F0				mov temp, 100
+	   00000064
+ 00000850  F7 65 F0				mul temp
+						; backup sum of differences to ebx
+ 00000853  8B D8				mov ebx, eax
+						; dividing sum of differences by 255*imageWidth*imageHeight
+ 00000855  A1 00003B98 R			mov eax, imageWidth
+ 0000085A  F7 25 00003B9C R			mul imageHeight
+ 00000860  C7 45 F0				mov temp, 255
+	   000000FF
+ 00000867  F7 65 F0				mul temp
+ 0000086A  89 45 F0				mov temp, eax
+ 0000086D  8B C3				mov eax, ebx ; EAX = sum of differences
+ 0000086F  BA 00000000				mov edx, 0
+ 00000874  F7 75 F0				div temp ; EAX = EAX/255*imageWidth*imageHeight
+ 00000877  E8 00000000 E			call WriteDec
+ 0000087C  B8 0000002E				mov eax, '.'
+ 00000881  E8 00000000 E			call WriteChar ; display a decimal point
+						; To get the fractional part, divide the remainder (EDX) by the divisor (temp)
+ 00000886  8B C2				mov eax, edx ; EAX = remainder
+ 00000888  BB 00002710				mov ebx, 10000 ; multiply the remainder by 10000 to get the fractional part upto the 4th place
+ 0000088D  F7 E3				mul ebx
+ 0000088F  F7 75 F0				div temp
+ 00000892  E8 00000000 E			call WriteDec
+ 00000897  B8 00000025				mov eax, '%'
+ 0000089C  E8 00000000 E			call WriteChar ; display the percentage symbol
+ 000008A1  E8 00000000 E			call crlf
+
+ 000008A6  EB 05				jmp quit
+ 000008A8					show_error_message:
+							; EAX contains a system error code
+ 000008A8  E8 00000000 E				call WriteWindowsMsg
+ 000008AD					quit:
+							RET
+ 000008AF				lossyCompression ENDP
+
+					; The following procedure uses the RGB grid in the buffer array
+					; to display a colored image on the console
+ 000008AF				viewImageFromBuffer PROC, bufferPtr: PTR BYTE
+						LOCAL count: DWORD
+						; AL  = Bits 0-3 = foreground color
+						;       Bits 4-7 = background color
+ 000008B5  8B 75 08				mov esi, bufferPtr
+ 000008B8  0F B6 4E 01				movzx ecx, BYTE PTR [esi+1] ; ECX = image height
+ 000008BC  0F B6 1E				movzx ebx, BYTE PTR [esi] ; EBX = image width
+ 000008BF  83 C6 02				add esi, 2
+ 000008C2					L1:
+ 000008C2  89 4D FC					mov count, ecx
+ 000008C5  8A CB					mov cl, bl
+ 000008C7						L2:
+ 000008C7  8A 06						mov al, BYTE PTR [esi]
+ 000008C9  B4 00						mov ah, 0h
+ 000008CB  E8 00000000 E					call SetTextColor
+ 000008D0  46							inc esi
+ 000008D1  B8 00000020						mov eax, ' '
+ 000008D6  E8 00000000 E					call WriteChar
+ 000008DB  E2 EA					LOOP L2
+ 000008DD  B0 00					mov al, 0h
+ 000008DF  B4 00					mov ah, 0h
+ 000008E1  E8 00000000 E				call crlf
+ 000008E6  8B 4D FC					mov ecx, count
+ 000008E9  E2 D7				LOOP L1
+ 000008EB  B8 00000002				mov eax, green+(black*16)
+ 000008F0  E8 00000000 E			call SetTextColor
+ 000008F5  E8 00000000 E			call crlf
+						RET
+ 000008FE				viewImageFromBuffer ENDP
+
+ 000008FE				decompressImage PROC, compressedFileNameArg: PTR BYTE
+						LOCAL totalRGBVals: WORD, imgWidth: BYTE, imgHeight: BYTE
+						; try to open the file
+ 00000904  8B 55 08				mov EDX, compressedFileNameArg
+ 00000907  E8 00000000 E			call OpenInputFile
+ 0000090C  A3 00003B94 R			mov fileHandle, eax
+ 00000911  BA 00000000 R			mov edx, OFFSET buffer
+ 00000916  B9 00001388				mov ecx, BUFSIZE
+ 0000091B  E8 00000000 E			call ReadFromFile
+ 00000920  A1 00003B94 R			mov eax, fileHandle
+ 00000925  E8 00000000 E			call CloseFile
+						; if CF = 1, the file couldn't be read
+ 0000092A  0F 82 000000A1			jc show_error_message
+						; if CF = 0, the file was read successfully
+						; the file's contents go to the BUFFER variable
+ 00000930  E8 00000000 E			call crlf
+ 00000935  BE 00000000 R			mov esi, OFFSET buffer
+ 0000093A  BF 00001388 R			mov edi, OFFSET outputBuffer
+ 0000093F  B9 00000000				mov ecx, 0
+						; get the image width from the file
+ 00000944  8A 1E				mov bl, BYTE PTR [esi]
+ 00000946  88 5D FD				mov imgWidth, bl
+ 00000949  88 1F				mov BYTE PTR [edi], bl
+						; get the image height from the file
+ 0000094B  8A 5E 01				mov bl, BYTE PTR [esi+1]
+ 0000094E  88 5D FC				mov imgHeight, bl
+ 00000951  88 5F 01				mov BYTE PTR [edi+1], bl
+ 00000954  8A 45 FD				mov al, imgWidth
+ 00000957  F6 E3				mul bl
+ 00000959  66| 89 45 FE				mov totalRGBVals, ax
+ 0000095D  C7 05 00003BA0 R			mov totalNoOfBytes, 2
+	   00000002
+ 00000967  83 C6 02				add esi, 2
+ 0000096A  83 C7 02				add edi, 2
+ 0000096D					L1:
+							; get the run
+ 0000096D  8A 0E					mov cl, BYTE PTR [esi]
+ 0000096F  46						inc esi
+ 00000970						L2:
+ 00000970  8A 06						mov al, BYTE PTR [esi]
+ 00000972  88 07						mov BYTE PTR [edi], al
+ 00000974  FF 05 00003BA0 R					inc totalNoOfBytes
+ 0000097A  66| FF 4D FE						dec totalRGBVals
+ 0000097E  66| 83 7D FE						cmp totalRGBVals, 0
+	   00
+ 00000983  74 06						je imageComplete
+ 00000985  47							inc edi
+ 00000986  E2 E8					LOOP L2
+ 00000988  46						inc esi
+ 00000989  EB E2					jmp L1
+ 0000098B					imageComplete:
+						; Save the decompressed RGB grid to a file
+ 0000098B  BA 00003B44 R			mov edx, OFFSET decompressedFileName
+ 00000990  E8 00000000 E			call CreateOutputFile
+ 00000995  A3 00003B94 R			mov fileHandle, eax
+ 0000099A  BA 00001388 R			mov edx, OFFSET outputBuffer
+ 0000099F  8B 0D 00003BA0 R			mov ecx, totalNoOfBytes
+ 000009A5  E8 00000000 E			call WriteToFile
+ 000009AA  72 25				jc show_error_message
+						; Decompression successful - inform user
+ 000009AC  BA 00003D68 R			mov edx, OFFSET decompressSuccess
+ 000009B1  E8 00000000 E			call WriteString
+ 000009B6  BA 00003B44 R			mov edx, OFFSET decompressedFileName
+ 000009BB  E8 00000000 E			call WriteString
+ 000009C0  E8 00000000 E			call crlf
+ 000009C5  A3 00003BA4 R			mov bytesWritten, eax
+ 000009CA  A1 00003B94 R			mov eax, fileHandle
+ 000009CF  EB 05				jmp quit
+ 000009D1					show_error_message:
+							; EAX contains a system error code
+ 000009D1  E8 00000000 E				call WriteWindowsMsg
+ 000009D6					quit:
+ 000009D6  A1 00003B94 R				mov eax, fileHandle
+ 000009DB  E8 00000000 E				call CloseFile
+						RET
+ 000009E4				decompressImage ENDP
+				END main
+Microsoft (R) Macro Assembler Version 10.00.30319.01	    02/02/21 15:58:33
+4Image Compression with Run Length Encoding Algorith	     Symbols 2 - 1
+
+
+
+
+Structures and Unions:
+
+                N a m e                  Size
+                                         Offset      Type
+
+CONSOLE_CURSOR_INFO  . . . . . .	 00000008
+  dwSize . . . . . . . . . . . .	 00000000	 DWord
+  bVisible . . . . . . . . . . .	 00000004	 DWord
+CONSOLE_SCREEN_BUFFER_INFO . . .	 00000016
+  dwSize . . . . . . . . . . . .	 00000000	 DWord
+  dwCursorPosition . . . . . . .	 00000004	 DWord
+  wAttributes  . . . . . . . . .	 00000008	 Word
+  srWindow . . . . . . . . . . .	 0000000A	 QWord
+  dwMaximumWindowSize  . . . . .	 00000012	 DWord
+COORD  . . . . . . . . . . . . .	 00000004
+  X  . . . . . . . . . . . . . .	 00000000	 Word
+  Y  . . . . . . . . . . . . . .	 00000002	 Word
+FILETIME . . . . . . . . . . . .	 00000008
+  loDateTime . . . . . . . . . .	 00000000	 DWord
+  hiDateTime . . . . . . . . . .	 00000004	 DWord
+FOCUS_EVENT_RECORD . . . . . . .	 00000004
+  bSetFocus  . . . . . . . . . .	 00000000	 DWord
+FPU_ENVIRON  . . . . . . . . . .	 0000001C
+  controlWord  . . . . . . . . .	 00000000	 Word
+  statusWord . . . . . . . . . .	 00000004	 Word
+  tagWord  . . . . . . . . . . .	 00000008	 Word
+  instrPointerOffset . . . . . .	 0000000C	 DWord
+  instrPointerSelector . . . . .	 00000010	 DWord
+  operandPointerOffset . . . . .	 00000014	 DWord
+  operandPointerSelector . . . .	 00000018	 Word
+INPUT_RECORD . . . . . . . . . .	 00000014
+  EventType  . . . . . . . . . .	 00000000	 Word
+  Event  . . . . . . . . . . . .	 00000004	 XmmWord
+  bKeyDown . . . . . . . . . . .	 00000000	 DWord
+  wRepeatCount . . . . . . . . .	 00000004	 Word
+  wVirtualKeyCode  . . . . . . .	 00000006	 Word
+  wVirtualScanCode . . . . . . .	 00000008	 Word
+  uChar  . . . . . . . . . . . .	 0000000A	 Word
+  UnicodeChar  . . . . . . . . .	 00000000	 Word
+  AsciiChar  . . . . . . . . . .	 00000000	 Byte
+  dwControlKeyState  . . . . . .	 0000000C	 DWord
+  dwMousePosition  . . . . . . .	 00000000	 DWord
+  dwButtonState  . . . . . . . .	 00000004	 DWord
+  dwMouseControlKeyState . . . .	 00000008	 DWord
+  dwEventFlags . . . . . . . . .	 0000000C	 DWord
+  dwSize . . . . . . . . . . . .	 00000000	 DWord
+  dwCommandId  . . . . . . . . .	 00000000	 DWord
+  bSetFocus  . . . . . . . . . .	 00000000	 DWord
+KEY_EVENT_RECORD . . . . . . . .	 00000010
+  bKeyDown . . . . . . . . . . .	 00000000	 DWord
+  wRepeatCount . . . . . . . . .	 00000004	 Word
+  wVirtualKeyCode  . . . . . . .	 00000006	 Word
+  wVirtualScanCode . . . . . . .	 00000008	 Word
+  uChar  . . . . . . . . . . . .	 0000000A	 Word
+  UnicodeChar  . . . . . . . . .	 00000000	 Word
+  AsciiChar  . . . . . . . . . .	 00000000	 Byte
+  dwControlKeyState  . . . . . .	 0000000C	 DWord
+MENU_EVENT_RECORD  . . . . . . .	 00000004
+  dwCommandId  . . . . . . . . .	 00000000	 DWord
+MOUSE_EVENT_RECORD . . . . . . .	 00000010
+  dwMousePosition  . . . . . . .	 00000000	 DWord
+  dwButtonState  . . . . . . . .	 00000004	 DWord
+  dwMouseControlKeyState . . . .	 00000008	 DWord
+  dwEventFlags . . . . . . . . .	 0000000C	 DWord
+SMALL_RECT . . . . . . . . . . .	 00000008
+  Left . . . . . . . . . . . . .	 00000000	 Word
+  Top  . . . . . . . . . . . . .	 00000002	 Word
+  Right  . . . . . . . . . . . .	 00000004	 Word
+  Bottom . . . . . . . . . . . .	 00000006	 Word
+SYSTEMTIME . . . . . . . . . . .	 00000010
+  wYear  . . . . . . . . . . . .	 00000000	 Word
+  wMonth . . . . . . . . . . . .	 00000002	 Word
+  wDayOfWeek . . . . . . . . . .	 00000004	 Word
+  wDay . . . . . . . . . . . . .	 00000006	 Word
+  wHour  . . . . . . . . . . . .	 00000008	 Word
+  wMinute  . . . . . . . . . . .	 0000000A	 Word
+  wSecond  . . . . . . . . . . .	 0000000C	 Word
+  wMilliseconds  . . . . . . . .	 0000000E	 Word
+WINDOW_BUFFER_SIZE_RECORD  . . .	 00000004
+  dwSize . . . . . . . . . . . .	 00000000	 DWord
+
+
+Segments and Groups:
+
+                N a m e                 Size     Length   Align   Combine Class
+
+FLAT . . . . . . . . . . . . . .	GROUP
+STACK  . . . . . . . . . . . . .	32 Bit	 00001000 Para	  Stack	  'STACK'	 
+_DATA  . . . . . . . . . . . . .	32 Bit	 00004064 Para	  Public  'DATA'	
+_TEXT  . . . . . . . . . . . . .	32 Bit	 000009E4 Para	  Public  'CODE'	
+
+
+Procedures, parameters, and locals:
+
+                N a m e                 Type     Value    Attr
+
+CloseFile  . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+CloseHandle  . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+Clrscr . . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+CreateFileA  . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+CreateOutputFile . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+Crlf . . . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+Delay  . . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+DumpMem  . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+DumpRegs . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+ExitProcess  . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+FileTimeToDosDateTime  . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+FileTimeToSystemTime . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+FlushConsoleInputBuffer  . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+FormatMessageA . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+GetCommandLineA  . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+GetCommandTail . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+GetConsoleCP . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+GetConsoleCursorInfo . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+GetConsoleMode . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+GetConsoleScreenBufferInfo . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+GetDateTime  . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+GetFileTime  . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+GetKeyState  . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+GetLastError . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+GetLocalTime . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+GetMaxXY . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+GetMseconds  . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+GetNumberOfConsoleInputEvents  .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+GetProcessHeap . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+GetStdHandle . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+GetSystemTime  . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+GetTextColor . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+GetTickCount . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+Gotoxy . . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+HeapAlloc  . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+HeapCreate . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+HeapDestroy  . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+HeapFree . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+HeapSize . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+IsDigit  . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+LocalFree  . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+MessageBoxA  . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+MsgBoxAsk  . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+MsgBox . . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+OpenInputFile  . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+ParseDecimal32 . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+ParseInteger32 . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+PeekConsoleInputA  . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+Random32 . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+RandomRange  . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+Randomize  . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+ReadChar . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+ReadConsoleA . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+ReadConsoleInputA  . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+ReadDec  . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+ReadFile . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+ReadFloat  . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+ReadFromFile . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+ReadHex  . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+ReadInt  . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+ReadKeyFlush . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+ReadKey  . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+ReadString . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+SetConsoleCursorInfo . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+SetConsoleCursorPosition . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+SetConsoleMode . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+SetConsoleScreenBufferSize . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+SetConsoleTextAttribute  . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+SetConsoleTitleA . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+SetConsoleWindowInfo . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+SetFilePointer . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+SetLocalTime . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+SetTextColor . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+ShowFPUStack . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+Sleep  . . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+StrLength  . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+Str_compare  . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+Str_copy . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+Str_length . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+Str_trim . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+Str_ucase  . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+SystemTimeToFileTime . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+WaitMsg  . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+WriteBinB  . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+WriteBin . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+WriteChar  . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+WriteConsoleA  . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+WriteConsoleOutputAttribute  . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+WriteConsoleOutputCharacterA . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+WriteDec . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+WriteFile  . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+WriteFloat . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+WriteHexB  . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+WriteHex . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+WriteInt . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+WriteStackFrameName  . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+WriteStackFrame  . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+WriteString  . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+WriteToFile  . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+WriteWindowsMsg  . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+decompressImage  . . . . . . . .	P Near	 000008FE _TEXT	Length= 000000E6 Public STDCALL
+  compressedFileNameArg  . . . .	DWord	 bp + 00000008
+  totalRGBVals . . . . . . . . .	Word	 bp - 00000002
+  imgWidth . . . . . . . . . . .	Byte	 bp - 00000003
+  imgHeight  . . . . . . . . . .	Byte	 bp - 00000004
+  L1 . . . . . . . . . . . . . .	L Near	 0000096D _TEXT	
+  L2 . . . . . . . . . . . . . .	L Near	 00000970 _TEXT	
+  imageComplete  . . . . . . . .	L Near	 0000098B _TEXT	
+  show_error_message . . . . . .	L Near	 000009D1 _TEXT	
+  quit . . . . . . . . . . . . .	L Near	 000009D6 _TEXT	
+displayCompressedImage . . . . .	P Near	 00000554 _TEXT	Length= 000000B0 Public STDCALL
+  compressedFileNameArg  . . . .	DWord	 bp + 00000008
+  rowCount . . . . . . . . . . .	DWord	 bp - 00000004
+  totalRGBVals . . . . . . . . .	Word	 bp - 00000006
+  imgWidth . . . . . . . . . . .	Byte	 bp - 00000007
+  imgHeight  . . . . . . . . . .	Byte	 bp - 00000008
+  L1 . . . . . . . . . . . . . .	L Near	 000005AA _TEXT	
+  L2 . . . . . . . . . . . . . .	L Near	 000005AD _TEXT	
+  printSpace . . . . . . . . . .	L Near	 000005D3 _TEXT	
+  next . . . . . . . . . . . . .	L Near	 000005DA _TEXT	
+  imageComplete  . . . . . . . .	L Near	 000005EA _TEXT	
+  show_error_message . . . . . .	L Near	 000005F1 _TEXT	
+  quit . . . . . . . . . . . . .	L Near	 000005F6 _TEXT	
+displayGrid  . . . . . . . . . .	P Near	 00000359 _TEXT	Length= 0000007C Public STDCALL
+  count  . . . . . . . . . . . .	Byte	 bp - 00000001
+  L1 . . . . . . . . . . . . . .	L Near	 00000398 _TEXT	
+  L2 . . . . . . . . . . . . . .	L Near	 0000039D _TEXT	
+  show_error_message . . . . . .	L Near	 000003C4 _TEXT	
+  quit . . . . . . . . . . . . .	L Near	 000003C9 _TEXT	
+displayHeader  . . . . . . . . .	P Near	 0000000C _TEXT	Length= 0000003B Public STDCALL
+  L1 . . . . . . . . . . . . . .	L Near	 0000001B _TEXT	
+displayMenu  . . . . . . . . . .	P Near	 00000047 _TEXT	Length= 0000024D Public STDCALL
+  choice . . . . . . . . . . . .	DWord	 bp - 00000004
+  L2 . . . . . . . . . . . . . .	L Near	 0000005C _TEXT	
+  takeInput  . . . . . . . . . .	L Near	 00000073 _TEXT	
+  option1  . . . . . . . . . . .	L Near	 000000D2 _TEXT	
+  option2  . . . . . . . . . . .	L Near	 00000107 _TEXT	
+  option3  . . . . . . . . . . .	L Near	 00000162 _TEXT	
+  option4  . . . . . . . . . . .	L Near	 0000019E _TEXT	
+  option5  . . . . . . . . . . .	L Near	 000001E9 _TEXT	
+  option6  . . . . . . . . . . .	L Near	 00000231 _TEXT	
+  invalidInput . . . . . . . . .	L Near	 0000027E _TEXT	
+  quit . . . . . . . . . . . . .	L Near	 00000292 _TEXT	
+generateRGBGrid  . . . . . . . .	P Near	 00000294 _TEXT	Length= 000000C5 Public STDCALL
+  L1 . . . . . . . . . . . . . .	L Near	 000002EF _TEXT	
+  show_error_message . . . . . .	L Near	 00000349 _TEXT	
+  quit . . . . . . . . . . . . .	L Near	 0000034E _TEXT	
+losslessCompression  . . . . . .	P Near	 000003D5 _TEXT	Length= 0000017F Public STDCALL
+  count  . . . . . . . . . . . .	Byte	 bp - 00000001
+  RGBVal . . . . . . . . . . . .	Byte	 bp - 00000002
+  bytesInOutputFile  . . . . . .	DWord	 bp - 00000008
+  L1 . . . . . . . . . . . . . .	L Near	 00000440 _TEXT	
+  identicalRGB . . . . . . . . .	L Near	 00000449 _TEXT	
+  nonIdenticalRGB  . . . . . . .	L Near	 00000451 _TEXT	
+  next . . . . . . . . . . . . .	L Near	 00000466 _TEXT	
+  displayCompressionRatio  . . .	L Near	 000004DA _TEXT	
+  compressionFailed  . . . . . .	L Near	 00000532 _TEXT	
+  show_error_message . . . . . .	L Near	 00000543 _TEXT	
+  quit . . . . . . . . . . . . .	L Near	 00000548 _TEXT	
+lossyCompression . . . . . . . .	P Near	 00000604 _TEXT	Length= 000002AB Public STDCALL
+  count  . . . . . . . . . . . .	Byte	 bp - 00000001
+  RGBVal . . . . . . . . . . . .	Byte	 bp - 00000002
+  bytesInOutputFile  . . . . . .	DWord	 bp - 00000008
+  noOfRGBVals  . . . . . . . . .	DWord	 bp - 0000000C
+  temp . . . . . . . . . . . . .	DWord	 bp - 00000010
+  L0 . . . . . . . . . . . . . .	L Near	 00000688 _TEXT	
+  L1 . . . . . . . . . . . . . .	L Near	 000006A7 _TEXT	
+  diff1  . . . . . . . . . . . .	L Near	 000006BA _TEXT	
+  checkFlatten . . . . . . . . .	L Near	 000006C2 _TEXT	
+  flatten  . . . . . . . . . . .	L Near	 000006C6 _TEXT	
+  next . . . . . . . . . . . . .	L Near	 000006CB _TEXT	
+  L2 . . . . . . . . . . . . . .	L Near	 000006FB _TEXT	
+  identicalRGB . . . . . . . . .	L Near	 00000704 _TEXT	
+  nonIdenticalRGB  . . . . . . .	L Near	 0000070C _TEXT	
+  next2  . . . . . . . . . . . .	L Near	 00000721 _TEXT	
+  displayCompressionRatio  . . .	L Near	 0000079F _TEXT	
+  compressionFailed  . . . . . .	L Near	 000007F7 _TEXT	
+  calcDisplayLossOfQuality . . .	L Near	 00000806 _TEXT	
+  L3 . . . . . . . . . . . . . .	L Near	 00000818 _TEXT	
+  L31  . . . . . . . . . . . . .	L Near	 0000082E _TEXT	
+  L32  . . . . . . . . . . . . .	L Near	 0000083A _TEXT	
+  show_error_message . . . . . .	L Near	 000008A8 _TEXT	
+  quit . . . . . . . . . . . . .	L Near	 000008AD _TEXT	
+main . . . . . . . . . . . . . .	P Near	 00000000 _TEXT	Length= 0000000C Public STDCALL
+printf . . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External C
+scanf  . . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External C
+viewImageFromBuffer  . . . . . .	P Near	 000008AF _TEXT	Length= 0000004F Public STDCALL
+  bufferPtr  . . . . . . . . . .	DWord	 bp + 00000008
+  count  . . . . . . . . . . . .	DWord	 bp - 00000004
+  L1 . . . . . . . . . . . . . .	L Near	 000008C2 _TEXT	
+  L2 . . . . . . . . . . . . . .	L Near	 000008C7 _TEXT	
+wsprintfA  . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External C
+
+
+Symbols:
+
+                N a m e                 Type     Value    Attr
+
+@CodeSize  . . . . . . . . . . .	Number	 00000000h   
+@DataSize  . . . . . . . . . . .	Number	 00000000h   
+@Interface . . . . . . . . . . .	Number	 00000003h   
+@Model . . . . . . . . . . . . .	Number	 00000007h   
+@code  . . . . . . . . . . . . .	Text   	 _TEXT
+@data  . . . . . . . . . . . . .	Text   	 FLAT
+@fardata?  . . . . . . . . . . .	Text   	 FLAT
+@fardata . . . . . . . . . . . .	Text   	 FLAT
+@stack . . . . . . . . . . . . .	Text   	 FLAT
+ALT_MASK . . . . . . . . . . . .	Number	 00000003h   
+BUFSIZE  . . . . . . . . . . . .	Number	 00001388h   
+CAPSLOCK_ON  . . . . . . . . . .	Number	 00000080h   
+CREATE_ALWAYS  . . . . . . . . .	Number	 00000002h   
+CREATE_NEW . . . . . . . . . . .	Number	 00000001h   
+CTRL_MASK  . . . . . . . . . . .	Number	 0000000Ch   
+CreateFile . . . . . . . . . . .	Text   	 CreateFileA
+DO_NOT_SHARE . . . . . . . . . .	Number	 00000000h   
+ENABLE_ECHO_INPUT  . . . . . . .	Number	 00000004h   
+ENABLE_LINE_INPUT  . . . . . . .	Number	 00000002h   
+ENABLE_MOUSE_INPUT . . . . . . .	Number	 00000010h   
+ENABLE_PROCESSED_INPUT . . . . .	Number	 00000001h   
+ENABLE_PROCESSED_OUTPUT  . . . .	Number	 00000001h   
+ENABLE_WINDOW_INPUT  . . . . . .	Number	 00000008h   
+ENABLE_WRAP_AT_EOL_OUTPUT  . . .	Number	 00000002h   
+ENHANCED_KEY . . . . . . . . . .	Number	 00000100h   
+FALSE  . . . . . . . . . . . . .	Number	 00000000h   
+FILE_APPEND_DATA . . . . . . . .	Number	 00000004h   
+FILE_ATTRIBUTE_ARCHIVE . . . . .	Number	 00000020h   
+FILE_ATTRIBUTE_COMPRESSED  . . .	Number	 00000800h   
+FILE_ATTRIBUTE_DEVICE  . . . . .	Number	 00000040h   
+FILE_ATTRIBUTE_DIRECTORY . . . .	Number	 00000010h   
+FILE_ATTRIBUTE_ENCRYPTED . . . .	Number	 00004000h   
+FILE_ATTRIBUTE_HIDDEN  . . . . .	Number	 00000002h   
+FILE_ATTRIBUTE_NORMAL  . . . . .	Number	 00000080h   
+FILE_ATTRIBUTE_NOT_CONTENT_INDEXED .	Number	 00002000h   
+FILE_ATTRIBUTE_OFFLINE . . . . .	Number	 00001000h   
+FILE_ATTRIBUTE_READONLY  . . . .	Number	 00000001h   
+FILE_ATTRIBUTE_REPARSE_POINT . .	Number	 00000400h   
+FILE_ATTRIBUTE_SPARSE_FILE . . .	Number	 00000200h   
+FILE_ATTRIBUTE_SYSTEM  . . . . .	Number	 00000004h   
+FILE_ATTRIBUTE_TEMPORARY . . . .	Number	 00000100h   
+FILE_BEGIN . . . . . . . . . . .	Number	 00000000h   
+FILE_CURRENT . . . . . . . . . .	Number	 00000001h   
+FILE_DELETE_CHILD  . . . . . . .	Number	 00000040h   
+FILE_END . . . . . . . . . . . .	Number	 00000002h   
+FILE_READ_DATA . . . . . . . . .	Number	 00000001h   
+FILE_SHARE_DELETE  . . . . . . .	Number	 00000004h   
+FILE_SHARE_READ  . . . . . . . .	Number	 00000001h   
+FILE_SHARE_WRITE . . . . . . . .	Number	 00000002h   
+FILE_WRITE_DATA  . . . . . . . .	Number	 00000002h   
+FOCUS_EVENT  . . . . . . . . . .	Number	 00000010h   
+FORMAT_MESSAGE_ALLOCATE_BUFFER .	Number	 00000100h   
+FORMAT_MESSAGE_FROM_SYSTEM . . .	Number	 00001000h   
+FormatMessage  . . . . . . . . .	Text   	 FormatMessageA
+GENERIC_ALL  . . . . . . . . . .	Number	 10000000h   
+GENERIC_EXECUTE  . . . . . . . .	Number	 20000000h   
+GENERIC_READ . . . . . . . . . .	Number	 -80000000h   
+GENERIC_WRITE  . . . . . . . . .	Number	 40000000h   
+GetCommandLine . . . . . . . . .	Text   	 GetCommandLineA
+HANDLE . . . . . . . . . . . . .	Text   	 DWORD
+HEAP_GENERATE_EXCEPTIONS . . . .	Number	 00000004h   
+HEAP_GROWABLE  . . . . . . . . .	Number	 00000002h   
+HEAP_NO_SERIALIZE  . . . . . . .	Number	 00000001h   
+HEAP_REALLOC_IN_PLACE_ONLY . . .	Number	 00000010h   
+HEAP_ZERO_MEMORY . . . . . . . .	Number	 00000008h   
+IDABORT  . . . . . . . . . . . .	Number	 00000003h   
+IDCANCEL . . . . . . . . . . . .	Number	 00000002h   
+IDCLOSE  . . . . . . . . . . . .	Number	 00000008h   
+IDCONTINUE . . . . . . . . . . .	Number	 0000000Bh   
+IDHELP . . . . . . . . . . . . .	Number	 00000009h   
+IDIGNORE . . . . . . . . . . . .	Number	 00000005h   
+IDNO . . . . . . . . . . . . . .	Number	 00000007h   
+IDOK . . . . . . . . . . . . . .	Number	 00000001h   
+IDRETRY  . . . . . . . . . . . .	Number	 00000004h   
+IDTIMEOUT  . . . . . . . . . . .	Number	 00007D00h   
+IDTRYAGAIN . . . . . . . . . . .	Number	 0000000Ah   
+IDYES  . . . . . . . . . . . . .	Number	 00000006h   
+INVALID_HANDLE_VALUE . . . . . .	Number	 -00000001h   
+KBDOWN_FLAG  . . . . . . . . . .	Number	 00000001h   
+KEY_EVENT  . . . . . . . . . . .	Number	 00000001h   
+KEY_MASKS  . . . . . . . . . . .	Number	 0000001Fh   
+LEFT_ALT_PRESSED . . . . . . . .	Number	 00000002h   
+LEFT_CTRL_PRESSED  . . . . . . .	Number	 00000008h   
+MB_ABORTRETRYIGNORE  . . . . . .	Number	 00000002h   
+MB_APPLMODAL . . . . . . . . . .	Number	 00000000h   
+MB_CANCELTRYCONTINUE . . . . . .	Number	 00000006h   
+MB_DEFBUTTON1  . . . . . . . . .	Number	 00000000h   
+MB_DEFBUTTON2  . . . . . . . . .	Number	 00000100h   
+MB_DEFBUTTON3  . . . . . . . . .	Number	 00000200h   
+MB_DEFBUTTON4  . . . . . . . . .	Number	 00000300h   
+MB_HELP  . . . . . . . . . . . .	Number	 00004000h   
+MB_ICONASTERISK  . . . . . . . .	Number	 00000040h   
+MB_ICONERROR . . . . . . . . . .	Number	 00000010h   
+MB_ICONEXCLAMATION . . . . . . .	Number	 00000030h   
+MB_ICONHAND  . . . . . . . . . .	Number	 00000010h   
+MB_ICONINFORMATION . . . . . . .	Number	 00000040h   
+MB_ICONQUESTION  . . . . . . . .	Number	 00000020h   
+MB_ICONSTOP  . . . . . . . . . .	Number	 00000010h   
+MB_ICONWARNING . . . . . . . . .	Number	 00000030h   
+MB_OKCANCEL  . . . . . . . . . .	Number	 00000001h   
+MB_OK  . . . . . . . . . . . . .	Number	 00000000h   
+MB_RETRYCANCEL . . . . . . . . .	Number	 00000005h   
+MB_SYSTEMMODAL . . . . . . . . .	Number	 00001000h   
+MB_TASKMODAL . . . . . . . . . .	Number	 00002000h   
+MB_USERICON  . . . . . . . . . .	Number	 00000080h   
+MB_YESNOCANCEL . . . . . . . . .	Number	 00000003h   
+MB_YESNO . . . . . . . . . . . .	Number	 00000004h   
+MENU_EVENT . . . . . . . . . . .	Number	 00000008h   
+MOUSE_EVENT  . . . . . . . . . .	Number	 00000002h   
+MessageBox . . . . . . . . . . .	Text   	 MessageBoxA
+NULL . . . . . . . . . . . . . .	Number	 00000000h   
+NUMLOCK_ON . . . . . . . . . . .	Number	 00000020h   
+OPEN_ALWAYS  . . . . . . . . . .	Number	 00000004h   
+OPEN_EXISTING  . . . . . . . . .	Number	 00000003h   
+PeekConsoleInput . . . . . . . .	Text   	 PeekConsoleInputA
+RIGHT_ALT_PRESSED  . . . . . . .	Number	 00000001h   
+RIGHT_CTRL_PRESSED . . . . . . .	Number	 00000004h   
+ReadConsoleInput . . . . . . . .	Text   	 ReadConsoleInputA
+ReadConsole  . . . . . . . . . .	Text   	 ReadConsoleA
+SCROLLLOCK_ON  . . . . . . . . .	Number	 00000040h   
+SHIFT_MASK . . . . . . . . . . .	Number	 00000010h   
+SHIFT_PRESSED  . . . . . . . . .	Number	 00000010h   
+STD_ERROR_HANDLE . . . . . . . .	Number	 -0000000Ch   
+STD_INPUT_HANDLE . . . . . . . .	Number	 -0000000Ah   
+STD_OUTPUT_HANDLE  . . . . . . .	Number	 -0000000Bh   
+SetConsoleTitle  . . . . . . . .	Text   	 SetConsoleTitleA
+TAB  . . . . . . . . . . . . . .	Number	 00000009h   
+TRUE . . . . . . . . . . . . . .	Number	 00000001h   
+TRUNCATE_EXISTING  . . . . . . .	Number	 00000005h   
+VK_11  . . . . . . . . . . . . .	Number	 000000BDh   
+VK_12  . . . . . . . . . . . . .	Number	 000000BBh   
+VK_ADD . . . . . . . . . . . . .	Number	 0000006Bh   
+VK_BACK  . . . . . . . . . . . .	Number	 00000008h   
+VK_CANCEL  . . . . . . . . . . .	Number	 00000003h   
+VK_CAPITAL . . . . . . . . . . .	Number	 00000014h   
+VK_CLEAR . . . . . . . . . . . .	Number	 0000000Ch   
+VK_CONTROL . . . . . . . . . . .	Number	 00000011h   
+VK_DECIMAL . . . . . . . . . . .	Number	 0000006Eh   
+VK_DELETE  . . . . . . . . . . .	Number	 0000002Eh   
+VK_DIVIDE  . . . . . . . . . . .	Number	 0000006Fh   
+VK_DOWN  . . . . . . . . . . . .	Number	 00000028h   
+VK_END . . . . . . . . . . . . .	Number	 00000023h   
+VK_ESCAPE  . . . . . . . . . . .	Number	 0000001Bh   
+VK_EXECUTE . . . . . . . . . . .	Number	 0000002Bh   
+VK_F10 . . . . . . . . . . . . .	Number	 00000079h   
+VK_F11 . . . . . . . . . . . . .	Number	 0000007Ah   
+VK_F12 . . . . . . . . . . . . .	Number	 0000007Bh   
+VK_F13 . . . . . . . . . . . . .	Number	 0000007Ch   
+VK_F14 . . . . . . . . . . . . .	Number	 0000007Dh   
+VK_F15 . . . . . . . . . . . . .	Number	 0000007Eh   
+VK_F16 . . . . . . . . . . . . .	Number	 0000007Fh   
+VK_F17 . . . . . . . . . . . . .	Number	 00000080h   
+VK_F18 . . . . . . . . . . . . .	Number	 00000081h   
+VK_F19 . . . . . . . . . . . . .	Number	 00000082h   
+VK_F1  . . . . . . . . . . . . .	Number	 00000070h   
+VK_F20 . . . . . . . . . . . . .	Number	 00000083h   
+VK_F21 . . . . . . . . . . . . .	Number	 00000084h   
+VK_F22 . . . . . . . . . . . . .	Number	 00000085h   
+VK_F23 . . . . . . . . . . . . .	Number	 00000086h   
+VK_F24 . . . . . . . . . . . . .	Number	 00000087h   
+VK_F2  . . . . . . . . . . . . .	Number	 00000071h   
+VK_F3  . . . . . . . . . . . . .	Number	 00000072h   
+VK_F4  . . . . . . . . . . . . .	Number	 00000073h   
+VK_F5  . . . . . . . . . . . . .	Number	 00000074h   
+VK_F6  . . . . . . . . . . . . .	Number	 00000075h   
+VK_F7  . . . . . . . . . . . . .	Number	 00000076h   
+VK_F8  . . . . . . . . . . . . .	Number	 00000077h   
+VK_F9  . . . . . . . . . . . . .	Number	 00000078h   
+VK_HELP  . . . . . . . . . . . .	Number	 0000002Fh   
+VK_HOME  . . . . . . . . . . . .	Number	 00000024h   
+VK_INSERT  . . . . . . . . . . .	Number	 0000002Dh   
+VK_LBUTTON . . . . . . . . . . .	Number	 00000001h   
+VK_LCONTROL  . . . . . . . . . .	Number	 000000A2h   
+VK_LEFT  . . . . . . . . . . . .	Number	 00000025h   
+VK_LMENU . . . . . . . . . . . .	Number	 000000A4h   
+VK_LSHIFT  . . . . . . . . . . .	Number	 000000A0h   
+VK_MENU  . . . . . . . . . . . .	Number	 00000012h   
+VK_MULTIPLY  . . . . . . . . . .	Number	 0000006Ah   
+VK_NEXT  . . . . . . . . . . . .	Number	 00000022h   
+VK_NUMLOCK . . . . . . . . . . .	Number	 00000090h   
+VK_NUMPAD0 . . . . . . . . . . .	Number	 00000060h   
+VK_NUMPAD1 . . . . . . . . . . .	Number	 00000061h   
+VK_NUMPAD2 . . . . . . . . . . .	Number	 00000062h   
+VK_NUMPAD3 . . . . . . . . . . .	Number	 00000063h   
+VK_NUMPAD4 . . . . . . . . . . .	Number	 00000064h   
+VK_NUMPAD5 . . . . . . . . . . .	Number	 00000065h   
+VK_NUMPAD6 . . . . . . . . . . .	Number	 00000066h   
+VK_NUMPAD7 . . . . . . . . . . .	Number	 00000067h   
+VK_NUMPAD8 . . . . . . . . . . .	Number	 00000068h   
+VK_NUMPAD9 . . . . . . . . . . .	Number	 00000069h   
+VK_PAUSE . . . . . . . . . . . .	Number	 00000013h   
+VK_PRINT . . . . . . . . . . . .	Number	 0000002Ah   
+VK_PRIOR . . . . . . . . . . . .	Number	 00000021h   
+VK_RBUTTON . . . . . . . . . . .	Number	 00000002h   
+VK_RCONTROL  . . . . . . . . . .	Number	 000000A3h   
+VK_RETURN  . . . . . . . . . . .	Number	 0000000Dh   
+VK_RIGHT . . . . . . . . . . . .	Number	 00000027h   
+VK_RMENU . . . . . . . . . . . .	Number	 000000A5h   
+VK_RSHIFT  . . . . . . . . . . .	Number	 000000A1h   
+VK_SCROLL  . . . . . . . . . . .	Number	 00000091h   
+VK_SEPARATER . . . . . . . . . .	Number	 0000006Ch   
+VK_SHIFT . . . . . . . . . . . .	Number	 00000010h   
+VK_SNAPSHOT  . . . . . . . . . .	Number	 0000002Ch   
+VK_SPACE . . . . . . . . . . . .	Number	 00000020h   
+VK_SUBTRACT  . . . . . . . . . .	Number	 0000006Dh   
+VK_TAB . . . . . . . . . . . . .	Number	 00000009h   
+VK_UP  . . . . . . . . . . . . .	Number	 00000026h   
+WINDOW_BUFFER_SIZE_EVENT . . . .	Number	 00000004h   
+WriteConsoleOutputCharacter  . .	Text   	 WriteConsoleOutputCharacterA
+WriteConsole . . . . . . . . . .	Text   	 WriteConsoleA
+backupOfBuffer . . . . . . . . .	Byte	 00002710 _DATA	
+black  . . . . . . . . . . . . .	Number	 00000000h   
+blue . . . . . . . . . . . . . .	Number	 00000001h   
+brown  . . . . . . . . . . . . .	Number	 00000006h   
+buffer . . . . . . . . . . . . .	Byte	 00000000 _DATA	
+bytesRead  . . . . . . . . . . .	DWord	 00003BA8 _DATA	
+bytesWritten . . . . . . . . . .	DWord	 00003BA4 _DATA	
+choicePrompt . . . . . . . . . .	Byte	 00003BAC _DATA	
+compressedfileName . . . . . . .	Byte	 00003AF4 _DATA	
+cyan . . . . . . . . . . . . . .	Number	 00000003h   
+decompressSuccess  . . . . . . .	Byte	 00003D68 _DATA	
+decompressedFileName . . . . . .	Byte	 00003B44 _DATA	
+defaultFileName  . . . . . . . .	Byte	 00003A98 _DATA	
+exit . . . . . . . . . . . . . .	Text   	 INVOKE ExitProcess,0
+fileHandle . . . . . . . . . . .	DWord	 00003B94 _DATA	
+fileName . . . . . . . . . . . .	Byte	 00003AA4 _DATA	
+flattenPrompt  . . . . . . . . .	Byte	 00003C9F _DATA	
+flattenRange . . . . . . . . . .	Byte	 00003CCA _DATA	
+generationSuccess  . . . . . . .	Byte	 00003DB5 _DATA	
+gray . . . . . . . . . . . . . .	Number	 00000008h   
+green  . . . . . . . . . . . . .	Number	 00000002h   
+imageHeight  . . . . . . . . . .	DWord	 00003B9C _DATA	
+imageWidth . . . . . . . . . . .	DWord	 00003B98 _DATA	
+invalidInputError  . . . . . . .	Byte	 00003DED _DATA	
+lightBlue  . . . . . . . . . . .	Number	 00000009h   
+lightCyan  . . . . . . . . . . .	Number	 0000000Bh   
+lightGray  . . . . . . . . . . .	Number	 00000007h   
+lightGreen . . . . . . . . . . .	Number	 0000000Ah   
+lightMagenta . . . . . . . . . .	Number	 0000000Dh   
+lightRed . . . . . . . . . . . .	Number	 0000000Ch   
+magenta  . . . . . . . . . . . .	Number	 00000005h   
+maxNoOfChars . . . . . . . . . .	Number	 00000050h   
+menuRowSize  . . . . . . . . . .	Number	 00000033h   
+menuTextArray  . . . . . . . . .	Byte	 00003F08 _DATA	
+neon . . . . . . . . . . . . . .	Byte	 00003E44 _DATA	
+outputBuffer . . . . . . . . . .	Byte	 00001388 _DATA	
+projTitle  . . . . . . . . . . .	Byte	 00003E0F _DATA	
+prompt1  . . . . . . . . . . . .	Byte	 00003BC1 _DATA	
+prompt2  . . . . . . . . . . . .	Byte	 00003BD5 _DATA	
+prompt3  . . . . . . . . . . . .	Byte	 00003BEA _DATA	
+prompt4  . . . . . . . . . . . .	Byte	 00003C12 _DATA	
+prompt5  . . . . . . . . . . . .	Byte	 00003C3C _DATA	
+prompt6  . . . . . . . . . . . .	Byte	 00003C65 _DATA	
+red  . . . . . . . . . . . . . .	Number	 00000004h   
+rowSize  . . . . . . . . . . . .	Number	 0000001Ch   
+text1  . . . . . . . . . . . . .	Byte	 00003CCB _DATA	
+text2  . . . . . . . . . . . . .	Byte	 00003CDF _DATA	
+text3  . . . . . . . . . . . . .	Byte	 00003D01 _DATA	
+text4  . . . . . . . . . . . . .	Byte	 00003D25 _DATA	
+text5  . . . . . . . . . . . . .	Byte	 00003D4B _DATA	
+totalNoOfBytes . . . . . . . . .	DWord	 00003BA0 _DATA	
+white  . . . . . . . . . . . . .	Number	 0000000Fh   
+wsprintf . . . . . . . . . . . .	Text   	 wsprintfA
+yellow . . . . . . . . . . . . .	Number	 0000000Eh   
+
+	   0 Warnings
+	   0 Errors
